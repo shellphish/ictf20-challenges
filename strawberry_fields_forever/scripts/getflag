@@ -1,0 +1,49 @@
+#!/usr/bin/python2
+import socket
+import sys
+import json
+import traceback
+
+ARGS = list(sys.argv)
+
+import benign
+
+from pwn import *
+
+def get_flag(ip, port, flag_id, token):
+
+    global r
+    r = remote(ip, port)
+
+    benign.r = r
+    tmp = benign.reallyRandomString(8,0x1c)
+    benign.intro(tmp)
+
+    name2 = benign.load(flag_id, token)
+
+    r.close()
+
+    return {
+             'error': 0,
+             'error_msg': "",
+             'payload': {'flag': name2}
+           }
+
+
+if __name__ == "__main__":
+    try:
+        sys.argv = ARGS
+        addr = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
+        port = sys.argv[2] if len(sys.argv) > 2 else 6666
+
+        res = get_flag(addr, port, sys.argv[3], sys.argv[4])
+
+        print json.dumps(res)
+    except Exception as e:
+        response = {
+            "error": 1,
+            "error_msg": str(e)+traceback.format_exc(),
+            "payload": {}
+        }
+        print json.dumps(response)
+

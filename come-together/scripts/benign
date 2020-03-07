@@ -1,0 +1,118 @@
+#! /usr/bin/env python2
+
+import sys
+import json
+import requests
+import random
+import traceback
+from subprocess import Popen, PIPE
+from urlparse import urlparse, parse_qs
+from PIL import Image, ImageDraw, ImageFont
+
+
+SIZES = [(250, 250), (230, 230), (60, 60), (200, 200)]
+
+def encode_multipart_formdata(fname):
+    boundary = '1451ca5bf34fc215c336d6162fe958eb'
+
+    body = b'-----{}\r\n'.format(boundary)
+    body += 'Content-Disposition: form-data; name=\"file.png\"\r\n\r\n'
+    body += '{}\r\n'.format(open(fname, 'rb').read())
+    body += '-----{}--\r\n'.format(boundary)
+
+    # content_type = "multipart/form-data; boundary=%s" % boundary
+
+    return body
+
+def create_session(ip, port):
+    url = 'http://{}:{}/a-beginning'.format(ip, port)
+    r = requests.get(url)
+    qs = urlparse(r.url).query
+
+    parsed_qs = parse_qs(qs)
+
+    assert 'session' in parsed_qs
+    assert 'token' in parsed_qs
+
+    return parsed_qs['session'][0], parsed_qs['token'][0]
+
+def benign_000(ip, port):
+    create_session(ip, port)
+
+def benign_001(ip, port):
+    session, token = create_session(ip, port)
+
+    b_img_id = random.choice([0,1,3])
+
+    img = Image.new('RGB', SIZES[b_img_id], color = (50, 209, 167))
+    fnt = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 28)
+    d = ImageDraw.Draw(img)
+
+
+    WORDS = ("hackers", "pwning", "CYBER", "do", "fun",  "suck")
+    word = random.choice(WORDS)
+    word += random.choice(WORDS)
+    word += random.choice(WORDS)
+
+    chunks = [word[i:i+10] for i in range(0, len(word), 10)]
+
+    if len(chunks) > 4:
+        chunks = chunks[:3]
+
+    for i, chunk in enumerate(chunks):
+        d.text((10,10 + i*30), chunk, font=fnt, fill=(255, 255, 0))
+
+    img.save('tmp_benign.png')
+
+    url = 'http://{}:{}/peace?session={}&token={}'.format(ip, port, session, token)
+    r = requests.post(url,
+                      headers={'Content-Type': 'multipart/form-data; boundary=-----1451ca5bf34fc215c336d6162fe958eb'},
+                      data=encode_multipart_formdata('tmp_benign.png'))
+
+    if r.status_code != 200:
+        raise Exception('Something went wrong :-( Failed upload')
+
+    url = 'http://{}:{}/magic/{}?session={}&token={}'.format(ip, port, b_img_id + 1, session, token)
+    r = requests.get(url)
+
+    if r.status_code != 200:
+        raise Exception('Something went wrong :-( Failed magic')
+
+
+def benign_002(ip, port):
+    session, token = create_session(ip, port)
+
+    url = 'http://{}:{}/love?session={}&token={}'.format(ip, port, session, token)
+    r = requests.get(url)
+
+    assert r.status_code == 500
+
+
+def benign(ip, port):
+
+    response = {
+        "error": 0,
+        "error_msg": "Everything is cool!",
+        "payload": {}
+    }
+
+    # Add benign behaviors in this array if you want to add some.
+    BENIGN_BEHAVIORS = [benign_000, benign_001, benign_002]
+
+    bb_index = random.randint(0,len(BENIGN_BEHAVIORS)-1)
+    bb_func = BENIGN_BEHAVIORS[bb_index]
+    bb_func(ip, port)
+
+    return response
+
+if __name__ == "__main__":
+    try:
+        print json.dumps(benign(sys.argv[1], int(sys.argv[2])))
+    except Exception as e:
+        response = {
+            "error": 1,
+            "error_msg" : str(e) + "\n" + traceback.format_exc(),
+            "payload": {}
+        }
+        print json.dumps(response)
+

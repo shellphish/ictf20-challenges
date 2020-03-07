@@ -1,0 +1,464 @@
+#!/usr/bin/python2
+import random
+import string
+import socket
+import sys
+import time
+import json
+import traceback
+from collections import defaultdict
+
+ARGS = list(sys.argv)
+
+from pwn import *
+
+PORT1 = 6667
+
+FIRST_FD=3
+
+global READ_BLOCKED
+READ_BLOCKED = None
+
+context.timeout=500
+context.log_level = "CRITICAL"
+#context.log_level = "DEBUG"
+
+global r
+r = None
+
+global G_INTRO
+G_INTRO = """The strawberry fields
+You thought they were forever
+But nothing is real
+Seccomp filters, those are real though
+What is your name?
+"""
+
+G_MENU = """1) Read new filter
+2) Add to filter
+3) Install filter
+4) Print filter
+5) Test filter
+6) Save Result
+7) Load Previous Result
+8) Exit
+> """
+
+blocked_syscalls = set((40, 57, 58, 56, 59, 60, 62, 76, 77, 82, 83, 84, 85, 86, 87, 88, 90, 91, 257, 258, 263, 264, 265, 266, 268, 316, 37, 14, 13, 275, 276, 200, 203, 204, 234, 207, 256, 274,279, 297, 298, 302, 310, 311, 312, 314, 315, 41, 101))
+
+unblocked_syscalls = set(range(0, 328)) - blocked_syscalls
+
+global g_effects
+global g_affected_syscalls
+g_effects = None
+g_affected_syscalls = set()
+global g_expected_tests
+g_expected_tests = []
+
+known_filters = [
+    (' \x00\x00\x00\x00\x00\x00\x00\x06\x00\x00\x00\x00\x00\xff\x7f', "", {}),
+]
+
+global fail_tests
+fail_tests = []
+
+def init():
+    # read all known failing test examples
+    with open("failing.txt", "rb") as f:
+        data = f.read()
+    num_each = defaultdict(int)
+    for l in data.split("\n"):
+        if len(l) == 0:
+            continue
+        parts = l.split(": ")
+        num = int(parts[0],10)
+        args = eval(parts[1])
+        res = int(parts[2],10)
+        if(num_each[num] > 20):
+            continue
+        num_each[num] += 1
+        fail_tests.append((num, args, res))
+init()
+
+def reallyRandomString(mn, mx):
+    l = random.randint(mn, mx)
+
+    if random.randint(0,3) == 0:
+        s = random.choice(string.letters)*l
+        return s
+
+    s = ''.join(random.choice(string.letters + string.digits) for _ in range(l))
+    return s
+
+def slightlyRandomString(mn, mx):
+    l = random.randint(mn, mx)
+    s = ''.join(random.choice(string.letters + string.digits) for _ in range(l))
+    return s
+
+def addon_useless(f):
+    allow_rest = '\x06\x00\x00\x00\x00\x00\xff\x7f'
+    errno_41 = '\x06\x00\x00\x00A\x00\x05\x00'
+    errno_0 = '\x06\x00\x00\x00\x00\x00\x05\x00'
+    kill = '\x06\x00\x00\x00\x00\x00\x00\x00'
+    useless = [allow_rest, errno_41, errno_0, kill]
+
+    # intro useless
+    block_400 = ' \x00\x00\x00\x00\x00\x00\x00%\x00\x00\x01\x90\x01\x00\x00\x06\x00\x00\x00\x00\x00\x00\x00'
+    random_gt_eq = ' \x00\x00\x000\x00\x00\x00%\x00\x00\x02AAAA \x00\x00\x008\x00\x00\x005\x00\x00\x01BBBB \x00\x00\x00 \x00\x00\x00'.replace("AAAA", p32(random.randint(1,0xffffffff))).replace("BBBB",  p32(random.randint(1,0xffffffff)))
+
+    choice = random.randint(1,7)
+    if choice == 1:
+        f = block_400+f
+    elif choice == 2:
+        f = random_gt_eq + f
+    elif choice == 3:
+        f = block_400+random_gt_eq+f
+
+
+    choice = random.randint(0,4)
+    f = f + random.choice(useless)
+    return f
+
+
+def create_block_single():
+    num = random.choice(list(unblocked_syscalls))
+    args = [random.randint(0,3) if random.randint(1,3) == 1 else random.randint(-0x8000,0x8000-1) for _ in range(6)]
+    new_res = random.randint(1,200-1)
+
+    f = ' \x00\x00\x00\x00\x00\x00\x00\x15\x00\x01\x00A\x00\x00\x00\x06\x00\x00\x00\x00\x00\xff\x7f \x00\x00\x00\x10\x00\x00\x00\x15\x00\x01\x00B\x00\x00\x00\x06\x00\x00\x00\x00\x00\xff\x7f \x00\x00\x00\x18\x00\x00\x00\x15\x00\x01\x00C\x00\x00\x00\x06\x00\x00\x00\x00\x00\xff\x7f \x00\x00\x00 \x00\x00\x00\x15\x00\x01\x00D\x00\x00\x00\x06\x00\x00\x00\x00\x00\xff\x7f \x00\x00\x00(\x00\x00\x00\x15\x00\x01\x00E\x00\x00\x00\x06\x00\x00\x00\x00\x00\xff\x7f \x00\x00\x000\x00\x00\x00\x15\x00\x01\x00F\x00\x00\x00\x06\x00\x00\x00\x00\x00\xff\x7f \x00\x00\x008\x00\x00\x00\x15\x00\x01\x00G\x00\x00\x00\x06\x00\x00\x00\x00\x00\xff\x7f\x06\x00\x00\x00\xbc\x00\x05\x00'
+    f = f[:12] + p32(num) + f[16:]
+    for i in range(6):
+        f = f[:36+i*24] + p32(args[i]&0xffffffff) + f[40+i*24:]
+    f = f[:172] + p16(new_res) + f[174:]
+
+    #print(repr(f))
+
+    new_res = -new_res
+    return f, num, args, new_res
+
+def addon_block_read_specific(f):
+    global READ_BLOCKED
+    READ_BLOCKED = random.randint(0x1300, 0x1500)
+    x = ' \x00\x00\x00\x00\x00\x00\x00\x15\x00\x00\x03\x00\x00\x00\x00 \x00\x00\x00 \x00\x00\x00\x15\x00\x00\x017\x13\x00\x00\x06\x00\x00\x00\x00\x00\x05\x00'.replace(p16(0x1337), p16(READ_BLOCKED))
+    return x + f
+
+def add_filter():
+    global g_effects
+    global g_affected_syscalls
+    #f, g_effects, g_affected_syscalls = known_filters[random.randint(0, len(known_filters)-1)]
+    #g_affected_syscalls = set(g_affected_syscalls)
+    #f, g_effects, g_affected_syscalls = compile_grab_filter(), "", set()
+    f, num, args, new_res = create_block_single()
+    if random.randint(1,5) == 1:
+        f = addon_block_read_specific(f)
+    f = addon_useless(f)
+    g_affected_syscalls.add(num)
+    g_expected_tests.append((num, args, new_res))
+    #print g_expected_tests
+    g_effects = ""
+    split = ""
+    if random.randint(1,3) == 1:
+        split_index = random.randint(1,len(f)-1)
+        f, split = f[:split_index], f[split_index:]
+
+    r.readuntil("> ")
+    r.sendline("1")
+    r.readuntil("filter? ")
+    r.sendline(str(len(f)))
+    r.readuntil("data? ")
+    r.send(f)
+
+    return f, split
+
+def install():
+    r.readuntil("> ")
+    r.sendline("3")
+    data = r.readuntil("Filter installed!")
+    assert "Invalid argument" not in data
+
+def read_menu():
+    menu = r.readuntil("> ")
+    assert G_MENU in menu
+
+def save():
+    read_menu()
+    r.sendline("6")
+    r.readuntil("enter a password to protect your save file\n")
+    password = slightlyRandomString(8,14)
+    r.sendline(password)
+    r.readuntil("saveid is: ")
+    save_id = r.readuntil("\n")[:-1]
+    return save_id, password
+
+def bad_password_load(save_id):
+    r.readuntil("> ")
+    r.sendline("7")
+    r.readuntil("loading\n")
+    r.sendline(save_id)
+    r.readuntil("password\n")
+    r.sendline(randomString(7))
+    assert "Invalid password\n" == r.readuntil("\n")
+
+def run_test(syscall, args):
+    r.readuntil("> ")
+    r.sendline("5")
+    l = [syscall] + args
+    assert len(l) == 7
+    for i in range(len(l)):
+        r.sendline(str(l[i]))
+        assert -0x8000 <= l[i] < 0x8000
+    for i in range(len(l)):
+        r.readuntil("arg" + str(i) + ") ")
+    message = r.readuntil(": ")
+    res = int(r.readuntil("\n"), 10)
+    assert "Test failed with value:" in message or "Result:" in message
+    return res
+
+def load(save_id, password):
+    read_menu()
+    r.sendline("7")
+    r.readuntil("be loading\n")
+    r.sendline(save_id)
+    r.readuntil("password\n")
+    r.sendline(password)
+    r.readuntil("Welcome back ")
+    name = r.readuntil("\n")[:-1]
+
+    return name
+
+def do_print(filter_len, only_good=False):
+    read_menu()
+    r.sendline("4")
+    r.readuntil("Your filter is ")
+    tmp = int(r.readuntil(" "), 10)
+    assert tmp == filter_len
+    r.readuntil("What index do you want to start printing from? ")
+
+    if only_good or random.randint(0,3) != 0:
+        start = random.randint(0,filter_len)
+        r.sendline(str(start))
+        r.readuntil("Filter: ")
+        data = r.readuntil("\n")
+        data = data[:-1].decode('hex')
+        return start, data
+
+    if random.randint(0,1) == 0:
+        start = random.randint(-1000000,-1);
+    else:
+        start = random.randint(filter_len,0x40000000);
+    r.sendline(str(start))
+
+    r.readuntil("That index is out of bounds!")
+
+    return start, printed
+
+
+def check_save(ip, port, save_id, password, expected_name, expected_filter):
+    global r
+    r = remote(ip, port)
+
+    tmp = reallyRandomString(8,0x1c)
+    intro(tmp)
+
+    name2 = load(save_id, password)
+    assert name2 == expected_name
+
+    start, printed = do_print(len(expected_filter), only_good=True)
+    assert expected_filter[start:] == printed
+    start, printed = do_print(len(expected_filter), only_good=True)
+    assert expected_filter[start:] == printed
+    install()
+    for i in range(5):
+        test_unaffected()
+    r.close()
+
+
+def add_to_filter(split):
+    read_menu()
+    r.sendline("2")
+    r.readuntil("how many bytes are you adding? ")
+    r.sendline(str(len(split)))
+    r.readuntil("data? ")
+    r.send(split)
+
+def fake_bad_add(curr_filter):
+    read_menu()
+    r.sendline("2")
+    r.readuntil("how many bytes are you adding? ")
+    l = random.randint(0x40001-len(curr_filter), 0x10000000)
+    r.sendline(str(l))
+    r.readuntil("Way too big!")
+
+def pick_test():
+    global fail_tests
+    global g_effects
+    if g_effects == "":
+        test = random.choice(fail_tests)
+        while test[0] in g_affected_syscalls:
+            test = random.choice(fail_tests)
+        return test
+        
+    raise Exception("pick test error")
+
+# FIXME test that shutdown close dup don't break anything
+
+def test_affected():
+    num, args, new_res = random.choice(g_expected_tests)
+    #print num, args, new_res
+    res = run_test(num, args)
+    assert res == new_res, "test_affected" + str((num, args, new_res, res))
+    return res
+
+def test_unaffected():
+    syscall, args, result = pick_test()
+    res = run_test(syscall, args)
+    assert res == result, "test_unaffected: " + str((syscall, args, result, res))
+
+def test_nonzero():
+    choice = random.randint(1,8)
+    num = None
+    if choice == 1:
+        # eventfd
+        num, args, res = 284, [1], FIRST_FD
+    elif choice == 2:
+        # mmap()
+        num, args, res = 9, [0x7000, 0x1000, 7, 0x22, -1, 0], 0
+    elif choice == 3:
+        # prctl
+        num, args, res = 157, [3], 1
+    elif choice == 4:
+        # getuid
+        num, args, res = 102, [], 31337
+    elif choice == 5:
+        # dup2
+        dest = random.randint(5,100)
+        num, args, res = 33, [1,dest], dest
+    elif choice == 6:
+        # getpid
+        num, args, res = 39, [], lambda x: 0<=x
+    elif choice == 7:
+        # mlockall
+        num, args, res = 151, [2], 0
+    elif choice == 8:
+        # epoll_create
+        num, args, res = 213, [4], FIRST_FD
+
+    while len(args) < 6:
+        args.append(random.randint(-0x8000,0x8000-1))
+
+    val = run_test(num, args)
+    # print val
+    if callable(res):
+        assert res(val), "test nonzero: " + str((choice, val))
+    else:
+        assert res == val, "test nonzero" + str((choice, val))
+
+def test_read_block():
+    read_menu()
+    r.sendline("1")
+    r.readuntil("filter? ")
+    r.sendline(str(READ_BLOCKED+2))
+    r.readuntil("data? ")
+    r.send("A\n")
+
+def do_benign_stuff(conn, ip, port):
+    global r
+    global READ_BLOCKED
+    r = conn
+
+    the_filter, split = add_filter()
+    if len(split) > 0:
+        add_to_filter(split)
+        the_filter += split
+
+    if random.randint(1,3) == 1:
+        fake_bad_add(the_filter)
+    install()
+
+    if random.randint(1,3) == 1:
+        the_filter, split = add_filter()
+        if len(split) > 0:
+            add_to_filter(split)
+            the_filter += split        
+        install()
+
+
+    # print "test_unaffected"
+    for i in range(5):
+        test_unaffected()
+
+    # print "test_affected"
+    for i in range(2):
+        x = test_affected()
+        if x == 0:
+            break
+
+    # print "test_nonzero"
+    test_nonzero()
+
+    if READ_BLOCKED is not None:
+        # print "test_read_block"
+        test_read_block
+        the_filter, split = add_filter()
+        if len(split) > 0:
+            add_to_filter(split)
+            the_filter += split
+
+
+    return the_filter
+
+
+def compile_grab_filter():
+    os.system("rm a.out; gcc compile_me_to_grab_filters.c")
+    with open("a.out", "rb") as f:
+        data = f.read()
+    FILTER=data.split("AAAABBBB")[1]
+    # print repr(FILTER)
+    return FILTER
+
+
+def benign(ip, port):
+    global r
+    conn = remote(ip, port)
+    r = conn
+
+    name = reallyRandomString(8,0x1c)
+    intro(name)
+
+    last_filter = do_benign_stuff(conn, ip, port)
+
+    save_id, password = save()
+    r.close()
+
+    for i in range(random.randint(1,3)):
+        check_save(ip, port, save_id, password, name, last_filter)
+        time.sleep(random.randint(1,100)/100.0)
+
+    return True
+
+def intro(name):
+    data = r.readuntil("name?\n")
+    assert data == G_INTRO 
+    r.sendline(name)
+
+if __name__ == "__main__":
+
+    try:
+        sys.argv = ARGS
+        addr = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
+        port = sys.argv[2] if len(sys.argv) > 2 else 6666
+        benign(addr, port)
+        response = {
+            "error": 0,
+            "error_msg": "",
+            "payload": {}
+        }
+        print json.dumps(response)
+    except Exception as e:
+        response = {
+            "error": 1,
+            "error_msg": str(e)+traceback.format_exc(),
+            "payload": {}
+        }
+        print json.dumps(response)
+

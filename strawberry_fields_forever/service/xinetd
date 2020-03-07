@@ -1,0 +1,16 @@
+service strawberry_fields
+{
+        disable = no
+        type = UNLISTED
+        wait = no
+        server = /home/chall/service/ro/run.sh
+        socket_type = stream
+        protocol = tcp 
+        user = chall
+        port = 6666
+        flags = REUSE
+        per_source = UNLIMITED
+        rlimit_cpu = 2
+        nice = 18
+        rlimit_fsize = 65536
+}

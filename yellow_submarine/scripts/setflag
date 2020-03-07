@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+
+from pwnlib.tubes.remote import remote
+from pwnlib import context
+import sys
+import hashlib
+import json
+import uuid
+import base64
+import traceback
+
+context.log_level = 'error'
+
+def solve_pow(challenge, prefix):
+  resp = 0
+  while True:
+    if hashlib.sha256(prefix + str(resp)).hexdigest().startswith(challenge):
+      return str(resp)
+    resp += 1
+
+def set_flag(ip, port, flag):
+  flag_id = str(uuid.uuid4())
+
+  r = remote(ip, port)
+  # 1. Generates a key
+  r.sendlineafter('yellow-submarine$ ', 'keygen')
+  r.recvuntil('Please solve the given proof-of-work challenge: ')
+  challenge, prefix = r.recvuntil('.')[:-1].split('|')
+  if len(challenge) != 4: raise Exception('Proof-of-work too hard')
+  response = solve_pow(challenge, prefix)
+  r.sendlineafter('> ', response)
+
+  # 2. Stores a secret
+  r.sendlineafter('yellow-submarine$ ', 'store')
+  r.sendlineafter('> ', flag_id)
+  r.sendlineafter('> ', base64.b64encode(flag))
+  r.recvline()
+  token = r.recvline().strip()
+  
+  # 2b. Parses the token
+  _, _, _, _, _ = token.split('|')
+
+  # 3. Exit
+  r.sendlineafter('yellow-submarine$ ', 'exit')
+  r.close()
+
+  return {
+    'error': 0,
+    'error_msg': '',
+    'payload': {
+      'flag_id': flag_id,
+      'secret_token': token
+    }
+  }
+
+if __name__ == '__main__':
+  try:
+    print json.dumps(set_flag(sys.argv[1], int(sys.argv[2]), sys.argv[3]))
+  except Exception as e:
+    response = {
+      'error': 1,
+      'error_msg': str(e) + "\n" + traceback.format_exc(),
+      'payload': {}
+    }
+    print json.dumps(response)

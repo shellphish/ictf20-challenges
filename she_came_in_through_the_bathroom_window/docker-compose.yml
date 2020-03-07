@@ -1,0 +1,20 @@
+version: "3.7"
+services:
+    she_came_in_through_the_bathroom_window:
+        build: ./service
+        volumes:
+            #- type: bind
+            #  source: ./service/ro
+            #  target: /home/chall/service/ro
+            #  read_only: true
+            - type: bind
+              source: ./service/rw
+              target: /home/chall/service/rw
+            - type: bind
+              source: ./service/append
+              target: /home/chall/service/append
+              #security_opt:
+              #- apparmor:unconfined
+        ports:
+            - "1234:6666"
+              #privileged: true

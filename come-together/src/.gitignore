@@ -1,0 +1,9 @@
+*.o
+come_together
+server
+httpd
+setupsession
+parsepeace
+setupimage
+domagic
+data/*

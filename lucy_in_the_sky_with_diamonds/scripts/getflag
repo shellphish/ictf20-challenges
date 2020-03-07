@@ -1,0 +1,239 @@
+#!/usr/bin/env python
+import sys
+import os
+import random
+import math
+import traceback
+import json
+import socket
+import struct
+import sys
+import os
+import random
+import math
+
+ok = 'ACK_OK'
+DEBUG = False
+
+
+#create and connect to the socket
+def getSocket(host, port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((host, int(port)))
+    return s
+
+def recvMessage(s):
+    l = s.recv(4)
+    L = struct.unpack('<I',l)[0]
+    #print L
+    data = ''
+    while (len(data)<L):
+        data += s.recv(L-len(data))
+    return data
+
+def sendMessage(s,mess):
+    l = len(mess)
+    byteLength = struct.pack('<I', l)
+    s.sendall(byteLength)
+    s.sendall(mess)
+
+def closeSocket(s):
+    s.close()
+
+#registration
+def reg(s,name, pwd):
+    if (DEBUG):
+        print (name, pwd)
+    sendMessage(s,'r')
+    data = recvMessage(s) #receive ack
+    data = recvMessage(s) #receive username
+    if (DEBUG):
+        print data
+    sendMessage(s,name) #send username
+    data = recvMessage(s) #receive pwd
+    if (DEBUG):
+        print data
+    sendMessage(s,pwd) #send pwd
+    if (DEBUG):
+        print pwd
+    data = recvMessage(s) #receive status
+    if (data!=ok): #error
+        if (DEBUG):
+            print data
+            print ("reg error")
+        return -1
+    else:
+        data = recvMessage(s) #receive confirm
+        if (DEBUG):
+            print data
+        flag_id = data.split('<')[1]
+        flag_id = flag_id.split('>')[0]
+        if (DEBUG):
+            print ("idstronzo label ",flag_id)
+        return flag_id
+
+#login
+def login(s,usname,pwd):
+    sendMessage(s,'l')
+    data = recvMessage(s) #receive ACK
+    if (DEBUG):
+        print ("usname label ",usname, " pwd label", pwd)
+    data = recvMessage(s) # receive username
+    if (DEBUG):
+        print data
+    sendMessage(s,usname) #send username
+    data = recvMessage(s) #receive pwd
+    if (DEBUG):
+        print data
+    sendMessage(s,pwd) #send pwd
+    data = recvMessage(s) # receive status
+    if (data!=ok):
+        return -1
+    else:
+        data = recvMessage(s) #receive confirm
+        if (DEBUG):
+            print data
+        return 0
+
+#help
+def help(s, what):
+    sendMessage(s,'h')
+    data = recvMessage(s) # receive main menu
+    data = recvMessage(s) # receive what help you want?
+    if (DEBUG):
+        print data
+    sendMessage(s,what) #send command
+    data = recvMessage(s) # receive ack
+    if (data!=ok):
+        return -1
+    else:
+        data = recvMessage(s) #receive help page
+        if (DEBUG):
+            print data
+        return 0
+
+#exit
+def exit(s):
+    sendMessage(s,'e')
+    data = recvMessage(s) #receive main menu
+    return -1
+    
+#insert_DIAMOND
+def insert_diamond(s,size, price, flag):
+    sendMessage(s,'a')
+    data = recvMessage(s)
+    data = recvMessage(s)
+    data = recvMessage(s) #receive insert price
+    if (DEBUG):
+        print data
+    sendMessage(s,price) #send price
+    if (DEBUG):
+        print price
+    data = recvMessage(s) #receive insert size
+    if (DEBUG):
+        print data
+    sendMessage(s,size) #send size
+    if (DEBUG):
+        print size
+    data = recvMessage(s) #receive insert name
+    if (DEBUG):
+        print data
+    sendMessage(s,flag) #send name
+    if (DEBUG):
+        print flag
+    data = recvMessage(s) #receive status
+    if (data != ok):
+        return -1
+    else:
+        data = recvMessage(s) #receive confirm
+        if (DEBUG):
+            print data
+        return 0
+
+#view DIAMOND
+def view_diamond(s):
+    sendMessage(s,'g')
+    data = recvMessage(s) #receive ack
+    data = recvMessage(s) #receive login status
+    if (data != ok):
+        return -1
+    else:
+        if (DEBUG):
+            print ('logged')
+        data = recvMessage(s) #receive list DIAMOND
+        if (DEBUG):
+            print data
+        return 0
+
+def checkflag(s):
+    sendMessage(s,'g')
+    data = recvMessage(s) #receive ack
+    data = recvMessage(s) #receive login status
+    if (data != ok):
+        return -1
+    else:
+        if (DEBUG):
+            print ('logged')
+        data = recvMessage(s) #receive list DIAMOND (in this case just one)
+        if (DEBUG):
+            print data
+        flag = data.split(':')[2]
+        flag = flag.split()[0]
+        if (DEBUG):
+            print flag
+        return flag
+
+class GetFlag():
+
+    def __init__(self):
+        self.error = 0
+        self.error_msg = ''
+        self.flag = ''
+
+    def execute(self, ip, port, flag_id, token):
+        try:
+            s = getSocket(ip, port)
+        except Exception as e:
+            self.flag = ''
+            self.error = 1
+            self.error_msg = "connection refused"
+            return self.result()
+
+        try:
+            data = recvMessage(s) #receive main menu
+            if (DEBUG):
+                print data
+
+            login(s, flag_id, token) # login
+            data = recvMessage(s) #receive main menu
+            if (DEBUG):
+                print data
+            self.flag = checkflag(s)
+            data = recvMessage(s) #receive main menu
+
+            exit(s) #exit
+            closeSocket(s)
+        except Exception as e:
+            self.flag = ''
+            self.error = 1
+            self.error_msg = str(e)
+        return self.result()
+
+    def result(self):
+        return {'payload': {'flag': self.flag},
+                'error' : self.error,
+                'error_msg' : self.error_msg
+                }
+
+
+if __name__ == "__main__":
+    try:
+        print json.dumps(GetFlag().execute(sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4]))
+    except Exception as e:
+        response = {
+            "error": 1,
+            "error_msg": str(e) + "\n" + traceback.format_exc(),
+            "payload": {}
+        }
+        print json.dumps(response)
+                                    

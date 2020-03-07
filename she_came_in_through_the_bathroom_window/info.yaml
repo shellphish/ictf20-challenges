@@ -1,0 +1,5 @@
+service_name: she_came_in_through_the_bathroom_window
+authors:
+  - kylebot
+description: "As an Apple Scruff, you are tired of being in the group just waiting outside with cameras and autograph books. Now, rt is time to join the break-in group. (Note: this challenge requires building the docker container to patch)"
+flag_id_description: Flags are identified by the attempt name that is stored in tool stashs. Flagid is the the filename that tool stash is stored as.

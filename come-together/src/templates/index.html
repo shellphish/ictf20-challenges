@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Come Together 🎵</title>
+
+    <link rel="canonical" href="https://getbootstrap.com/docs/4.0/examples/cover/">
+
+    <!-- Bootstrap core CSS -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+      a,
+      a:focus,
+      a:hover {
+        color: #fff;
+      }
+
+      /* Custom default button */
+      .btn-secondary,
+      .btn-secondary:hover,
+      .btn-secondary:focus {
+        color: #333;
+        text-shadow: none; /* Prevent inheritance from `body` */
+        background-color: rgb(255, 196, 0);
+        border: .05rem solid rgb(255, 196, 0);
+      }
+
+      html,
+      body {
+        background-color: #333;
+        color: #fff;
+      }
+
+      .cover-container {
+        max-width: 42em;
+      }
+
+      .cover-heading {
+        margin-top: 40px;
+        margin-bottom: 10px;
+      }
+
+      .cover {
+        padding: 0 1.5rem;
+      }
+      .cover .btn-lg {
+        padding: .75rem 1.25rem;
+        font-weight: 700;
+      }
+
+      .dark-text {
+        color: #333;
+      }
+
+      .main-btn {
+        min-width: 200px;
+      }
+    </style>
+
+  </head>
+
+  <body class="text-center">
+
+    <div class="cover-container container d-flex h-100 p-3 mx-auto flex-column">
+      <main role="main" class="inner cover">
+        <h1 class="cover-heading">Come Together 🎵</h1>
+        <p class="lead">Where magic happens</p>
+        <div class="row cover-heading">
+          <div class="col">
+            <p class="lead">
+              <a href="/a-beginning" class="main-btn btn btn-lg btn-secondary">A Beginning</a>
+            </p>
+          </div>
+          <div class="col">
+            <button type="button" class="main-btn btn btn-lg btn-secondary" data-toggle="modal" data-target="#exampleModal">
+              Happiness
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <form class="lead dark-text" action="/happiness" method="GET">
+              <div class="form-group"">
+                <label>Session</label> 
+                <input class="form-control" name="session"/>
+              </div>
+              <div class="form-group"">
+                <label>Token</label> 
+                <input class="form-control" name="token"/>
+              </div>
+              <input class="btn btn-lg btn-secondary" type="submit" value="Happiness"/> 
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+  </body>
+</html>

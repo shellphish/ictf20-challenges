@@ -1,0 +1,77 @@
+#!/usr/bin/env python2
+
+import json
+import sys
+
+ip   = sys.argv[1]
+port = sys.argv[2]
+
+from pwn import remote, process, context
+import traceback
+import random
+import string
+
+# context.timeout = 45
+context.log_level = 'error'
+
+def random_str(l):
+    alphabet = string.ascii_uppercase + string.digits + string.ascii_lowercase
+    return ''.join(random.choice(alphabet) for _ in range(l))
+
+def create_and_view_song(r):
+
+    # Generate indistinguishable data from set_flag script
+    buf = random_str(random.randint(50, 150))
+    buf += '__'
+    buf += random_str(random.randint(16, 50))
+
+    # Create song
+    r.sendlineafter('> ', '1')
+    r.sendlineafter('How long is your song? ', str(len(buf)))
+    r.sendlineafter('Alright, I\'m listening.\n\n', buf)
+    r.sendline()
+    r.sendlineafter('You sure you\'re ok with that? ', 'y')
+    r.recvuntil('We\'ll call it... ')
+    song_num = int(r.recvline().strip())
+
+    # View song
+    r.sendlineafter('> ', '3')
+    r.sendlineafter('look at? ', str(song_num))
+    song_end = '\n---------------------------------------------\nWhat would you like to do,'
+    song = r.recvuntil(song_end)[:-len(song_end)]
+    return buf == song
+
+def rate_song(r):
+    r.sendlineafter('> ', '2')
+    r.sendlineafter('song? ', '254')
+    r.sendlineafter('go?\n\n', 'a' * 254)
+    r.sendline()
+    r.recvuntil('my monkey!')
+    return True
+
+def exit_prog(r):
+    r.sendlineafter('> ', '4')
+    r.close()
+    return True
+
+def benign(ip, port):
+    r         = remote(ip, port)
+    behaviors = [create_and_view_song, rate_song, exit_prog]
+    results   = [func(r) for func in behaviors]
+    response  = {
+        "error": int(not all(results)),
+        "error_msg" : "",
+        "payload": {},
+    }
+    return response
+
+if __name__ == "__main__":
+    try:
+        print json.dumps(benign(ip, int(port)))
+    except Exception as e:
+        response = {
+            "error": 1,
+            "error_msg" : str(e) + "\n" + traceback.format_exc(),
+            "payload": {}
+        }
+        print json.dumps(response)

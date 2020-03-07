@@ -1,0 +1,4 @@
+scripts/*.png
+scripts/*.rgb
+service/ro/*
+service/rw/*

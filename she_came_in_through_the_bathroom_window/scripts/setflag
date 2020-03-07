@@ -1,0 +1,122 @@
+#!/usr/bin/env python
+import sys
+import copy
+import json
+import string
+import traceback
+arguments = copy.deepcopy(sys.argv)
+from pwn import *
+sys.argv = arguments
+
+context.timeout = 45
+context.log_level = "error"
+
+r = None
+random.seed(time.time())
+
+def get_rand_str(length, charset=None):
+    """Generate a random string of fixed length """
+    if charset is None:
+        charset = string.ascii_letters + string.digits
+    return ''.join(random.choice(charset) for i in range(length))
+
+def save():
+    r.sendlineafter('>> ', '0')
+    r.recvuntil('your tools at: ')
+    place = r.recvline().strip()
+    r.recvuntil('password: ')
+    passwd = r.recvline().strip()
+    return place, passwd
+
+def load(place, passwd):
+    r.sendlineafter('>> ', '1')
+    r.sendlineafter('>> ', place)
+    r.sendlineafter('>> ', passwd)
+
+def bring(idx, height=-1):
+    assert 0 <= idx <= 3
+    r.sendlineafter('>> ', '2')
+    r.sendlineafter('>> ', str(idx))
+    if idx == 0:
+        r.sendlineafter('>> ', str(height))
+
+def show():
+    r.sendlineafter('>> ', '3')
+
+def rename(name):
+    r.sendlineafter('>> ', '4')
+    r.sendlineafter('>> ', name)
+
+def attempt(use):
+    r.sendlineafter('>> ', '5')
+    r.sendlineafter('>> ', str(use))
+
+def upload_bin(path):
+    with open(path, 'rb') as f:
+        content = f.read()
+    r.sendlineafter('>> ', str(len(content)))
+    r.sendlineafter('>> ', content)
+
+def checked_bring(idx):
+    choice = random.randint(0, 1)
+
+    if idx != 0:
+        bring(idx)
+        assert "How high do you want it to be?" not in r.recvline()
+        return None
+
+    r.sendlineafter('>> ', '2')
+    r.sendlineafter('>> ', str(idx))
+    assert "How high do you want it to be?" in r.recvline()
+    if choice:
+        r.sendlineafter(">> ", str(-1))
+        assert 'You are a cheater' in r.recvline()
+        return None
+    else:
+        val = random.randint(0, 0xffff)
+        r.sendlineafter('>> ', str(val))
+        return val
+
+def setflag(ip, port, flag):
+    global r
+
+    response = {
+        "error": 0,
+        "error_msg": "",
+        "payload": {},
+    }
+
+    r = remote(ip, port)
+
+    num = random.randint(-4, 4)
+    if num < 0:
+        for _ in range(-num):
+            show()
+    else:
+        r.sendlineafter('>> ', '5')
+
+    idx = random.randint(0, 3)
+    bring(idx)
+    show()
+
+    rename(flag)
+    flag_id, token = save()
+
+    response['payload'] = {
+        'flag_id': flag_id,  # Unique id for each flag
+        'secret_token': token,  # benign (get_flag) will know this, exploits will not
+    }
+
+    return response
+
+if __name__ == "__main__":
+    try:
+        print(json.dumps(setflag(sys.argv[1], int(sys.argv[2]), sys.argv[3])))
+    except Exception as e:
+        response = {
+            "error": 1,
+            "error_msg": str(e) + "\n" + traceback.format_exc(),
+            "payload": {}
+        }
+        print(json.dumps(response))
+

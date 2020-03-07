@@ -1,0 +1,208 @@
+#!/usr/bin/env python
+import sys
+import copy
+import json
+import string
+import tempfile
+import traceback
+arguments = copy.deepcopy(sys.argv)
+from pwn import *
+sys.argv = arguments
+
+context.timeout = 45
+context.log_level = "error"
+context.arch = 'amd64'
+
+r = None
+random.seed(time.time())
+
+def get_rand_str(length, charset=None):
+    """Generate a random string of fixed length """
+    if charset is None:
+        charset = string.ascii_letters + string.digits
+    return ''.join(random.choice(charset) for i in range(length))
+
+def save():
+    r.sendlineafter('>> ', '0')
+    r.recvuntil('your tools at: ')
+    place = r.recvline().strip()
+    r.recvuntil('password: ')
+    passwd = r.recvline().strip()
+    return place, passwd
+
+def load(place, passwd):
+    r.sendlineafter('>> ', '1')
+    r.sendlineafter('>> ', place)
+    r.sendlineafter('>> ', passwd)
+
+def bring(idx, height=-1):
+    assert 0 <= idx <= 3
+    r.sendlineafter('>> ', '2')
+    r.sendlineafter('>> ', str(idx))
+    if idx == 0:
+        r.sendlineafter('>> ', str(height))
+
+def show():
+    r.sendlineafter('>> ', '3')
+
+def rename(name):
+    r.sendlineafter('>> ', '4')
+    r.sendlineafter('>> ', name)
+
+def attempt(use):
+    r.sendlineafter('>> ', '5')
+    r.sendlineafter('>> ', str(use))
+
+def upload_bin(path):
+    with open(path, 'rb') as f:
+        content = f.read()
+    bin_size = str(len(content))
+
+    r.sendline(str(bin_size))
+    r.recvuntil('>> ')
+    r.send(content)
+
+def benign_rename():
+    log.info("[*] Testing rename functionality")
+
+    rand_name = get_rand_str(80)
+    rename(rand_name)
+
+    r.recvuntil("Attempt: ")
+    new_name0 = r.recvline().strip()
+    assert new_name0 == rand_name, "oops, rename fails, should be '%s', get '%s'" % (rand_name, new_name0)
+
+    show()
+
+    r.recvuntil("Attempt: ")
+    new_name1 = r.recvline().strip()
+    assert new_name1 == rand_name, "oops, rename fails, should be '%s', get '%s'" % (rand_name, new_name1)
+
+def checked_bring(idx):
+    choice = random.randint(0, 1)
+
+    if idx != 0:
+        bring(idx)
+        assert "How high do you want it to be?" not in r.recvline()
+        return None
+
+    r.sendlineafter('>> ', '2')
+    r.sendlineafter('>> ', str(idx))
+    assert "How high do you want it to be?" in r.recvline()
+    if choice:
+        r.sendlineafter(">> ", str(-1))
+        assert 'You are a cheater' in r.recvline()
+        return None
+    else:
+        val = random.randint(0, 0xffff)
+        r.sendlineafter('>> ', str(val))
+        return val
+
+def benign_bring_show():
+    count = random.choice(range(1, 5))
+    indices = list(range(4))
+    random.shuffle(indices)
+    if count < 4:
+        indices = indices[:count]
+
+    rets = [checked_bring(idx) for idx in indices]
+
+    show()
+
+    res = r.recvuntil('Attempt')
+    assert res.count('[*]') == len(indices)
+
+    if any(x is not None for x in rets):
+        re_res = int(re.search('\d+', res.splitlines()[0]).group(0))
+        assert re_res in rets
+
+def benign_serialization():
+    log.info("[*] Testing serialization/deserialization functionality")
+
+    # save the state
+    place, passwd = save()
+    assert len(place) == 0x20
+    assert len(passwd) == 0x20
+
+    # mess up the state
+    r.sendlineafter('>> ', '5')
+    rand_name = get_rand_str(80)
+    rename(rand_name)
+    bring(0)
+    bring(1)
+
+    # load the state
+    load(place, passwd)
+
+    # make sure everything is fine
+    r.recvuntil("Attempt: ")
+    new_name = r.recvline().strip()
+    assert new_name == "attempt-0", "oops, deserialization fails, fail to recover the name of the attempt"
+
+    show()
+    res = r.recvuntil('What to do now?')
+    assert "[*]" not in res
+
+def get_tmp_elf(output):
+    path = tempfile.mktemp()
+    e = ELF.from_assembly(shellcraft.linux.write(1, output+'\n', len(output+'\n'))+shellcraft.linux.exit(1))
+    return e.data
+
+def benign_exec():
+    idx = random.choice(range(4))
+    bring(idx)
+    attempt(idx)
+    assert 'error' not in r.recvuntil('>> ')
+
+    output = get_rand_str(0x20)
+    content = get_tmp_elf(output+'!')
+    r.sendline(str(len(content)))
+    r.sendafter(">> ", content)
+
+    res = r.recvuntil('!')
+    assert output in res
+
+def benign_libc_exec():
+    idx = random.choice(range(4))
+    bring(idx)
+    attempt(idx)
+    assert 'error' not in r.recvuntil('>> ')
+
+    dirname = os.path.dirname(__file__)
+    path = os.path.join(dirname, './libc_test')
+    upload_bin(path)
+
+    assert "Hello World!" in r.recvuntil('!')
+
+def run_benign(ip, port):
+    global r
+
+    response = {
+        "error": 0,
+        "error_msg": "",
+        "payload": {},
+    }
+
+    benign_funcs = [benign_rename, benign_serialization, benign_bring_show, benign_exec, benign_libc_exec]
+    for func in benign_funcs:
+        log.info(func.__name__)
+        r = remote(ip, port)
+        func()
+        r.close()
+
+    return response
+
+if __name__ == "__main__":
+    #r = remote("127.0.0.1", 1234)
+    #benign_serialization()
+
+    try:
+        print(json.dumps(run_benign(sys.argv[1], int(sys.argv[2]))))
+    except Exception as e:
+        response = {
+            "error": 1,
+            "error_msg": str(e) + "\n" + traceback.format_exc(),
+            "payload": {}
+        }
+        print(json.dumps(response))
+

@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+
+import socket
+import sys
+import pexpect
+import pexpect.fdpexpect
+import random
+import string
+#import IPython
+import json
+
+PORT = 1909
+DEBUG = False
+
+
+def get_flag(ip, port, flag_id, token):
+    username,password = token.split(":")
+    doc_id = flag_id
+
+    # Interaction with the service
+    # Try to be robust, services will not always answer immediately
+    conn = socket.create_connection((ip, port))
+    c = pexpect.fdpexpect.fdspawn(conn.fileno())
+    if DEBUG:
+        c.logfile = sys.stdout.buffer
+
+    c.expect("Enter username:")
+    c.sendline(username)
+    c.expect("Enter password:")
+    c.sendline(password)
+    c.expect("Enter document id:")
+    c.sendline(doc_id)
+    try:
+        c.expect("Title: ([\w ]+)")
+        flag = c.match.groups()[0].decode()
+    except Exception as e:
+        error = 1
+        error_msg = "Flag not found - pattern match failed: %s" % str(e)
+        return {'error': error,
+            'error_msg': error_msg,
+            payload: {}
+            }
+    c.expect("Enter command:")
+    c.send('quit')
+
+    c.close()
+    #conn.close()
+    error = 0
+    error_msg = ""
+
+    return {'error': error,
+            'error_msg': error_msg,
+            'payload': {
+                'flag': flag
+                }
+            }
+
+
+if __name__ == "__main__":
+    print(json.dumps(get_flag(sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4])))

@@ -1,0 +1,36 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+$script = <<-SCRIPT
+sudo useradd -u 31337 -ms /bin/bash ctf
+echo "ctf:yeahitssecure" | chpasswd
+sudo usermod -aG sudo ctf 
+sudo groupadd docker
+sudo usermod -aG docker ctf
+chown -R ctf /vagrant
+echo "sudo su - ctf" >> /home/vagrant/.bashrc
+sudo apt-get update
+
+# START CHALLENGE DEPENDENCIES
+sudo apt-get install -y python 
+sudo apt-get install -y python-pip
+pip install namegenerator
+pip install pwntools
+# END OF DEPENDENCIES
+
+SCRIPT
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/bionic64"
+  #config.vm.provision "shell", inline: "sudo useradd -u 31337 -p yeahitssecure -ms /bin/bash ctf"
+  config.vm.provision "shell", inline: $script
+
+  config.vm.provision :docker
+  config.vm.provision :docker_compose, yml: "/vagrant/docker-compose.yml", run: "always"
+
+  config.vm.synced_folder ".", "/vagrant",
+    owner: "31337", group: "31337"
+
+  #config.vm.network "private_network", ip: "192.168.0.100"
+  #config.vm.network "forwarded_port", guest: 6666, host: 12306
+end

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>Come Together 🎵</title>
+
+    <link rel="canonical" href="https://getbootstrap.com/docs/4.0/examples/cover/">
+
+    <!-- Bootstrap core CSS -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+      a,
+      a:focus,
+      a:hover {
+        color: #fff;
+      }
+
+      /* Custom default button */
+      .btn-secondary,
+      .btn-secondary:hover,
+      .btn-secondary:focus {
+        color: #333;
+        text-shadow: none; /* Prevent inheritance from `body` */
+        background-color: rgb(255, 196, 0);
+        border: .05rem solid rgb(255, 196, 0);
+      }
+
+      html,
+      body {
+        background-color: #333;
+        color: #fff;
+      }
+
+      .cover-container {
+        max-width: 42em;
+      }
+
+      .cover-heading {
+        margin-top: 40px;
+        margin-bottom: 10px;
+      }
+
+      .cover {
+        padding: 0 1.5rem;
+      }
+      .cover .btn-lg {
+        padding: .75rem 1.25rem;
+        font-weight: 700;
+      }
+
+      .dark-text {
+        color: #333;
+      }
+
+      .main-btn {
+        min-width: 200px;
+      }
+
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        padding: 0 4px;
+      }
+
+      /* Create four equal columns that sits next to each other */
+      .column {
+        flex: 25%;
+        max-width: 50%;
+        padding: 0 4px;
+      }
+
+      .column img {
+        margin-top: 8px;
+        vertical-align: middle;
+        width: 100%;
+      }
+
+      .column img:hover {
+        border: 5px solid #333;
+      }
+
+      /* Responsive layout - makes a two column-layout instead of four columns */
+      @media screen and (max-width: 800px) {
+        .column {
+          flex: 50%;
+          max-width: 50%;
+        }
+      }
+
+      /* Responsive layout - makes the two columns stack on top of each other instead of next to each other */
+      @media screen and (max-width: 600px) {
+        .column {
+          flex: 100%;
+          max-width: 100%;
+        }
+      }
+    </style>
+
+  </head>
+
+  <body class="text-center">
+
+    <div class="cover-container container d-flex h-100 p-3 mx-auto flex-column">
+      <main role="main" class="inner cover">
+        <h1 class="cover-heading">Come Together 🎵</h1>
+        <p class="lead">Where magic happens</p>
+        <div class="row cover-heading">
+          <div class="col">
+            <img src="/love?session=%1$s&token=%2$s"/>
+          </div>
+        </div>
+        <div class="row cover-heading">
+          <div class="col">
+            <button type="button" class="main-btn btn btn-lg btn-secondary" data-toggle="modal" data-target="#exampleModal">
+              Magic Show
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title dark-text">Choose Image</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="row">
+            <div class="column">
+              <a href="/magic/1?session=%1$s&token=%2$s"><img src="/amazing-beatles-images-small/1"></a>
+              <a href="/magic/2?session=%1$s&token=%2$s"><img src="/amazing-beatles-images-small/2"></a>
+            </div>
+            <div class="column">
+              <a href="/magic/3?session=%1$s&token=%2$s"><img src="/amazing-beatles-images-small/3"></a>
+              <a href="/magic/4?session=%1$s&token=%2$s"><img src="/amazing-beatles-images-small/4"></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+  </body>
+</html>

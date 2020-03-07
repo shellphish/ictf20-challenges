@@ -1,0 +1,5 @@
+service_name: come-together
+description: Everyone wants to be a member of The Beatles. Thanks to blockchain-based artificial intelligence, now you can! Upload your face and we do the magic (every picture you upload belongs to us)
+flag_id_description: Flags are identified by session IDs
+authors:
+    - conand

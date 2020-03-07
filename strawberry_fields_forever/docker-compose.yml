@@ -1,0 +1,15 @@
+version: "3.7"
+services:
+    strawberry_fields:
+        build: ./service
+        volumes:
+            - type: bind
+              source: ./service/ro
+              target: /home/chall/service/ro
+              read_only: true
+            - type: bind
+              source: ./service/append
+              target: /home/chall/service/append
+        ports:
+            - "9876:9876"
+        privileged: true

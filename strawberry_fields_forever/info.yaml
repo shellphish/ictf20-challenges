@@ -1,0 +1,5 @@
+service_name: strawberry_fields_forever
+authors:
+  - salls
+description: You visit some strawberry fields and as it starts to seem like you will be there forever, you realize that nothing is real, except seccomp filters.
+flag_id_description: Flags are identified by the user name, flag id's are the file names (save id).

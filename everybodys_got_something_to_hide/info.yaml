@@ -1,0 +1,5 @@
+service_name: everybodys_got_something_to_hide
+authors:
+  - escape_wq
+description: The infinite monkey theorem says that with enough monkeys writing songs for us, we'll eventually write the world's best song. Will you be one of our monkeys?
+flag_id_description: The flag is in one of the song files. That file's contents start with the flag_id.

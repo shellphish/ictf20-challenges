@@ -1,0 +1,64 @@
+#!/usr/bin/env python2
+
+import sys
+
+ip   = sys.argv[1]
+port = sys.argv[2]
+flag = sys.argv[3]
+
+from pwn import remote, process, context
+import json
+import traceback
+import string
+import random
+
+context.log_level = 'error'
+# context.timeout = 45
+
+def random_str(l):
+    alphabet = string.ascii_uppercase + string.digits + string.ascii_lowercase
+    return ''.join(random.choice(alphabet) for _ in range(l))
+
+def set_flag(ip, port, flag):
+
+    # Create flag id
+    buf = random_str(random.randint(50, 150))
+    buf += '__'
+    buf += flag
+    flag_id = buf[0:50]
+
+    r = remote(ip, port)
+
+    # Create a song
+    r.sendlineafter('> ', '1')
+    r.sendlineafter('How long is your song? ', str(len(buf)))
+    r.sendlineafter('Alright, I\'m listening.\n\n', buf)
+    r.sendline()
+    r.sendlineafter('You sure you\'re ok with that? ', 'y')
+
+    # Get song number / name as secret token
+    r.recvuntil('We\'ll call it... ')
+    song_num = int(r.recvline().strip())
+    r.sendlineafter('> ', '4')
+    r.close()
+
+    response = {
+        'error'   : 0,
+        'error_msg' : '',
+        'payload' : {
+            'flag_id' :         flag_id,  # Unique id for each flag
+            'secret_token' :    song_num, # benign (get_flag) will know this, exploits will not
+        }
+    }
+    return response
+
+if __name__ == "__main__":
+    try:
+        print json.dumps(set_flag(ip, int(port), flag))
+    except Exception as e:
+        response = {
+            "error": 1,
+            'error_msg' : str(e) + "\n" + traceback.format_exc(),
+            "payload": {}
+        }
+        print json.dumps(response)

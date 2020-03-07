@@ -1,0 +1,113 @@
+#! /usr/bin/env python2
+
+import sys
+import json
+import requests
+import hashlib
+import random
+import traceback
+from subprocess import Popen, PIPE
+from urlparse import urlparse, parse_qs
+from PIL import Image, ImageDraw, ImageFont
+
+
+SIZES = [(250, 250), (230, 230), (60, 60), (200, 200)]
+
+
+def hash_file(fname):
+    sha256_hash = hashlib.sha256()
+
+    with open(fname,"rb") as f:
+        # Read and update hash string value in blocks of 4K
+        for byte_block in iter(lambda: f.read(4096), b''):
+            sha256_hash.update(byte_block)
+
+    return sha256_hash.hexdigest()
+
+
+def encode_multipart_formdata(fname):
+    boundary = '1451ca5bf34fc215c336d6162fe958eb'
+
+    body = b'-----{}\r\n'.format(boundary)
+    body += 'Content-Disposition: form-data; name=\"file.png\"\r\n\r\n'
+    body += '{}\r\n'.format(open(fname, 'rb').read())
+    body += '-----{}--\r\n'.format(boundary)
+
+    # content_type = "multipart/form-data; boundary=%s" % boundary
+
+    return body
+
+
+def set_flag(ip, port, flag):
+    url = 'http://{}:{}/a-beginning'.format(ip, port)
+    r = requests.get(url)
+    qs = urlparse(r.url).query
+
+    b_img_id = random.choice([0,1,3])
+
+    img = Image.new('RGB', SIZES[b_img_id], color = (73, 109, 137))
+    fnt = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 28)
+    d = ImageDraw.Draw(img)
+
+    flag_chunks = [flag[i:i+10] for i in range(0, len(flag), 10)]
+
+    if len(flag_chunks) > 4:
+        raise ValueError('Flag is too long!')
+
+    for i, chunk in enumerate(flag_chunks):
+        d.text((10,10 + i*30), chunk, font=fnt, fill=(255, 255, 0))
+
+    img.save('tmp_flag.png')
+
+    p = Popen(['convert', 'tmp_flag.png', 'tmp_flag.rgb'])
+    p.communicate()
+
+    digest = hash_file('tmp_flag.rgb')
+
+    url = 'http://{}:{}/peace?{}'.format(ip, port, qs)
+    r = requests.post(url,
+                      headers={'Content-Type': 'multipart/form-data; boundary=-----1451ca5bf34fc215c336d6162fe958eb'},
+                      data=encode_multipart_formdata('tmp_flag.png'))
+
+    if r.status_code != 200:
+        raise Exception('Something went wrong :-(')
+
+    parsed_qs = parse_qs(qs)
+
+    url = 'http://{}:{}/magic/{}?{}'.format(ip, port, b_img_id + 1, qs)
+    r = requests.get(url)
+
+    if r.status_code != 200:
+        raise Exception('Something went wrong :-(')
+
+    payload = {
+            'flag_id': parsed_qs['session'][0],
+            'secret_token': '{}_{}_{}_{}'.format(parsed_qs['token'][0], b_img_id, digest, flag)
+           }
+
+    return {
+            'error': 0,
+            'error_msg': '',
+            'payload': payload
+            }
+
+
+def main():
+    try:
+        if len(sys.argv) != 4:
+            print('Use: python2 set_flag.py <HOST> <PORT> <FLAG>')
+            raise Exception('Missing parameters')
+
+        print json.dumps(set_flag(sys.argv[1], sys.argv[2], sys.argv[3]))
+
+    except Exception as e:
+        response = {
+            "error": 1,
+            "error_msg": str(e) + traceback.format_exc(),
+            "payload": {}
+        }
+        print json.dumps(response)
+
+
+if __name__ == "__main__":
+    main()

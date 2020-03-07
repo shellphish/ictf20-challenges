@@ -1,0 +1,79 @@
+#! /usr/bin/env python2
+
+import sys
+import json
+import requests
+import hashlib
+import random
+import traceback
+from subprocess import Popen, PIPE
+from urlparse import urlparse, parse_qs
+from PIL import Image, ImageDraw, ImageFont
+
+
+SIZES = [(250, 250), (230, 230), (60, 60), (200, 200)]
+POSITIONS = ['+335+360', '+780+30', '+100+65', '+540+25']
+
+
+def hash_file(fname):
+    sha256_hash = hashlib.sha256()
+
+    with open(fname,"rb") as f:
+        # Read and update hash string value in blocks of 4K
+        for byte_block in iter(lambda: f.read(4096), b''):
+            sha256_hash.update(byte_block)
+
+    return sha256_hash.hexdigest()
+
+
+def get_flag(ip, port, flag_id, token):
+    tok, b_img_id, digest, flag = token.split('_')
+    b_img_id = int(b_img_id)
+    url = 'http://{}:{}/love?session={}&token={}'.format(ip, port, flag_id, tok)
+    r = requests.get(url)
+
+    with open('retrieved.png', 'wb') as f:
+        f.write(r.content)
+
+    p = Popen(['convert',
+               'retrieved.png',
+               '-crop',
+               '{}x{}{}'.format(SIZES[b_img_id][0], SIZES[b_img_id][1], POSITIONS[b_img_id]),
+               'cropped.png'])
+    p.communicate()
+
+    p = Popen(['convert', 'cropped.png', 'cropped.rgb'])
+    p.communicate()
+
+    new_digest = hash_file('cropped.rgb')
+
+    if digest != new_digest:
+        raise Exception('Different image, cheaters!')
+
+    return {
+            'error': 0,
+            'error_msg': '',
+            'payload': {'flag': flag}
+            }
+
+
+def main():
+    try:
+        if len(sys.argv) != 5:
+            print('Use: python2 get_flag.py <HOST> <PORT> <FLAG_ID> <TOKEN>')
+            raise Exception('Missing parameters')
+
+        print json.dumps(get_flag(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]))
+
+    except Exception as e:
+        response = {
+            "error": 1,
+            "error_msg": str(e) + traceback.format_exc(),
+            "payload": {}
+        }
+        print json.dumps(response)
+
+
+
+if __name__ == "__main__":
+    main()

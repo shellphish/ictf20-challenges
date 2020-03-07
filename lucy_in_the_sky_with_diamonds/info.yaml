@@ -1,0 +1,6 @@
+architecture: x86_64
+service_name: lucy_in_the_sky_with_diamonds
+description: Picture yourself in a boat on a river with tangerine trees and marmalade skies. What's the first thing a bloke's gonna want? A service to register diamonds to users of course!
+flag_id_description: the flag_id is the user_id returned by the server after successful registration.
+authors:
+    - badnack

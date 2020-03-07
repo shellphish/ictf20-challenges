@@ -1,0 +1,5 @@
+service_name: yellow_submarine
+authors:
+  - Mystiz
+description: The earth is no longer safe to live in 2047. We will be building yellow submarines (Noah's ark for the twenty-first century) and have our own ecosystem.
+flag_id_description: flag_id is the filename that contains the flag.

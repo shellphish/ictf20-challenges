@@ -1,0 +1,10 @@
+version: '3.2'
+services:
+  yellow-submarine:
+    build: ./service
+    volumes:
+      - ./service/ro:/home/chall/service/ro:ro
+      - ./service/rw:/home/chall/service/rw
+      - ./service/append:/home/chall/service/append
+    ports:
+      - 6666:6666
